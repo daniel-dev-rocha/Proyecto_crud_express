@@ -1,0 +1,30 @@
+[
+  {
+    "nombre": "Daniel",
+    "edad": "17",
+    "correo": "spinirochi490@gmail.com",
+    "imagen": "url",
+    "clave": "x123"
+  },
+  {},
+  {
+    "nombre": "Daniel",
+    "edad": "17",
+    "correo": "spinirochi490@gmail.com",
+    "imagen": "url",
+    "clave": "x123"
+  },
+  {},
+  {},
+  {},
+  {
+    "Nombre": "Felipe",
+    "Edad": "17",
+    "Correo": "spinirochi490@gmail.com",
+    "imagen": "url",
+    "clave": "x123"
+  },
+  {
+    "imagen": "/misImagenes/1788798541185.png"
+  }
+]
