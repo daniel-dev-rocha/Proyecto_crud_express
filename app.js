@@ -1,79 +1,351 @@
-const { error } = require('console');
 const express = require('express');
+require('dotenv').config();
 
 const app = express();
 
 
-const MIPUERTO = 3000;
 
-//libreriaa fs, path
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+//usar nuestros middleware
 
-const sistemaArchivos = require ("fs") 
-const ruta = require ("path")
-const rutaMiArchivo = ruta.join(__dirname,"datos.json")
 
-const multer = require("multer")
+const PUERTO = process.env.MIPUERTO || 3003;
+// Importar mis middleware
+
+const registroMiddleware = require("./middleware/registroMiddleware")
+app.use(registroMiddleware)
+
+const manejoErroresMiddleware = require("./middleware/manejadoErroresMiddleware")
+
+
+// Librerías
+const sistemaArchivo = require('fs');
+const ruta = require('path');
+const multer = require('multer');
+
+
+// Validaciones
+const {
+    validarNombre,
+    validarCorreo
+} = require('./validaciones/validacioness');
+
+
+// Archivo JSON
+const rutaMiArchivo = ruta.join(__dirname, "datos.json");
+
+
+// MULTER
+
 const almacen = multer.diskStorage({
-    destination: (req, file, cb) => {cb(null, "misImagenes/")},
+    destination: (req, file, cb) => {
+        cb(null, "misImagenes/");
+    },
     filename: (req, file, cb) => {
-        const extension = ruta.extname(file.originalname)
-        cb(null, `${Date.now()}${extension}`)}
+        const extension = ruta.extname(file.originalname);
+        cb(null, `${Date.now()}${extension}`);
+    }
+});
+const subir = multer({
+    storage: almacen
+});
+
+
+
+// RUTA PRINCIPAL
+
+
+app.get('/', (req, res) => {
+    res.status(200).json({
+        mensaje: 'API REST Full con Express'
+    });
+});
+
+
+
+// GET - TODOS LOS APRENDICES
+
+app.get('/api/aprendices', (req, res) => {
+    sistemaArchivo.readFile(
+        rutaMiArchivo,
+        "UTF-8",
+        (error, datos) => {
+            if (error) {
+                return res.status(500).json({
+                    Error: "No se puede leer el archivo"
+                });
+            }
+            const listaAprendices = JSON.parse(datos);
+            res.status(200).json({
+                Listado: listaAprendices
+            });
+        }
+    );
+});
+
+
+
+// GET - APRENDIZ POR ID
+
+
+app.get('/api/aprendices/:id', (req, res) => {
+    const id = req.params.id;
+    sistemaArchivo.readFile(
+        rutaMiArchivo,
+        "UTF-8",
+        (error, datos) => {
+            if (error) {
+                return res.status(500).json({
+                    Error: "No se puede leer el archivo"
+                });
+            }
+            const listaAprendices = JSON.parse(datos);
+            const aprendiz = listaAprendices.find(
+                aprendiz => aprendiz.id == id
+            );
+            if (!aprendiz) {
+                return res.status(404).json({
+                    error: "Aprendiz no encontrado"
+                });
+            }
+            res.status(200).json(aprendiz);
+        }
+    );
+
+});
+
+
+
+// POST - CREAR APRENDIZ
+
+app.post(
+    "/api/aprendices",
+    subir.single("imagen"),
+    (req, res) => {
+        const datosAprendiz = req.body;
+        // Validar nombre
+        if (!validarNombre(datosAprendiz.nombre)) {
+            return res.status(400).json({
+                error: "El nombre debe tener más de 3 letras"
+            });
+        }
+        // Validar correo
+        if (!validarCorreo(datosAprendiz.correo)) {
+            return res.status(400).json({
+                error: "El correo no es válido"
+            });
+        }
+        // Guardar imagen
+        datosAprendiz.imagen = req.file
+            ? `/misImagenes/${req.file.filename}`
+            : "sin imagen";
+        sistemaArchivo.readFile(
+            rutaMiArchivo,
+            "UTF-8",
+            (error, datos) => {
+                if (error) {
+                    return res.status(500).json({
+                        Error: "No se puede leer el archivo"
+                    });
+                }
+                const listaAprendices = JSON.parse(datos);
+                // Crear ID
+                if (listaAprendices.length === 0) {
+
+                    datosAprendiz.id = 1;
+
+                } else {
+
+                    datosAprendiz.id =
+                        listaAprendices[listaAprendices.length - 1].id + 1;
+
+                }
+                // Agregar aprendiz
+                listaAprendices.push(datosAprendiz);
+                // Guardar archivo
+                sistemaArchivo.writeFile(
+                    rutaMiArchivo,
+                    JSON.stringify(listaAprendices, null, 2),
+                    (error) => {
+                        if (error) {
+                            return res.status(500).json({
+                                error: "No se puede escribir el file"
+                            });
+                        }
+                        res.status(201).json({
+                            mensaje: "creado",
+                            datosAprendiz
+                        });
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+
+
+
+// PUT - ACTUALIZAR APRENDIZ
+
+
+app.put(
+    '/api/aprendices/:id',
+    subir.single("imagen"),
+    (req, res) => {
+        const id = req.params.id;
+        sistemaArchivo.readFile(
+            rutaMiArchivo,
+            "UTF-8",
+            (error, datos) => {
+                if (error) {
+                    return res.status(500).json({
+                        error: "No se puede leer el archivo"
+                    });
+
+                }
+                const listaAprendices = JSON.parse(datos);
+                // Buscar aprendiz
+                const aprendiz = listaAprendices.find(
+                    aprendiz => aprendiz.id == id
+                );
+                if (!aprendiz) {
+
+                    return res.status(404).json({
+                        error: "Aprendiz no encontrado"
+                    });
+                }
+                // Validar nombre
+                if (
+                    req.body.nombre &&
+                    !validarNombre(req.body.nombre)
+                ) {
+
+                    return res.status(400).json({
+                        error: "El nombre debe tener más de 3 letras"
+                    });
+                }
+                // Validar correo
+                if (
+                    req.body.correo &&
+                    !validarCorreo(req.body.correo)
+                ) {
+
+                    return res.status(400).json({
+                        error: "El correo no es válido"
+                    });
+
+                }
+                // Actualizar datos
+                Object.assign(aprendiz, req.body);
+                // Actualizar imagen
+                if (req.file) {
+
+                    aprendiz.imagen =
+                        `/misImagenes/${req.file.filename}`;
+                }
+                // Guardar
+                sistemaArchivo.writeFile(
+                    rutaMiArchivo,
+                    JSON.stringify(listaAprendices, null, 2),
+                    (error) => {
+                        if (error) {
+                            return res.status(500).json({
+                                error: "No se puede escribir el file"
+                            });
+                        }
+                        res.status(200).json({
+                            mensaje: "Actualizado",
+                            aprendiz
+                        });
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+
+
+// DELETE - ELIMINAR APRENDIZ
+
+app.delete(
+    '/api/aprendices/:id',
+    (req, res) => {
+        const id = req.params.id;
+        sistemaArchivo.readFile(
+            rutaMiArchivo,
+            "UTF-8",
+            (error, datos) => {
+                if (error) {
+                    return res.status(500).json({
+                        error: "No se puede leer el archivo"
+                    });
+                }
+                const listaAprendices = JSON.parse(datos);
+                // Buscar posición
+                const indice = listaAprendices.findIndex(
+                    aprendiz => aprendiz.id == id
+                );
+                if (indice === -1) {
+
+                    return res.status(404).json({
+                        error: "Aprendiz no encontrado"
+                    });
+                }
+                // Eliminar
+                listaAprendices.splice(indice, 1);
+                // Guardar
+                sistemaArchivo.writeFile(
+                    rutaMiArchivo,
+                    JSON.stringify(listaAprendices, null, 2),
+                    (error) => {
+
+                        if (error) {
+
+                            return res.status(500).json({
+                                error: "No se puede escribir el file"
+                            });
+
+                        }
+                        res.status(200).json({
+                            mensaje: "Eliminado"
+                        });
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+
+
+
+
+app.get("/api/error", (req,res, next)=>{
+    next(new Error("Esto es un error provocado"))
 })
 
-const subir = multer({storage: almacen})
 
+app.use(manejoErroresMiddleware)
 
-// middleware body-parse
+// ==================================================
+// SERVIDOR
+// ==================================================
 
-app.use(express.json())
+app.listen(PUERTO, () => {
 
-app.use(express.urlencoded({extended : true}))
-
-app.get("/", (_, res) => {
-    res.send('API REST Full con Express');
-});
-
-app.get("/api/aprendices", (_, res) => {
-    sistemaArchivos.readFile(rutaMiArchivo, "utf-8", (error, datos) => {
-        if (error) res.status(500).json({Error: "No se puede leer el archivo"})
-        const listaAprendices = JSON.parse (datos)
-        res.status(200).json({Listado: listaAprendices})
-    })
-    //res.status(200).json({mensaje:'lista aprendices'})//
-});
-
-//app.post("/api/aprendices", (req, res) => {
-    //const datosAprendiz = req.body
-    //const edad = req.body.edad
-     
-    //res.status(201).json({mensaje:'crear aprendiz', datos: datosAprendiz, estado: datosAprendiz >=18? 'Eres Mayor de Edad' : 'Eres menor de edad'})
-    
-//});
-
-app.post("/api/aprendices", subir.single("imagen"), (req, res) => {
-    const datosAprendiz = req.body
-    datosAprendiz.imagen= req.file?`/misImagenes/${req.file.filename}`:"sin Imagenes"
-    console.log(datosAprendiz)
-    sistemaArchivos.readFile(rutaMiArchivo, "utf-8", (error, datos) => {
-        if (error) res.status(500).json({Error: "No se puede leer el archivo"})
-        const listaAprendices = JSON.parse (datos)
-        listaAprendices.push(datosAprendiz)
-        sistemaArchivos.writeFile(rutaMiArchivo, JSON.stringify(listaAprendices, null, 2), (error) => { 
-        if (error) res.status(500).json({Error: "No se escribir en el archivo"})
-        res.status(200).json({Mensaje:"creado", datos:datosAprendiz})})
-    })
+    console.log(
+        `Servidor ejecutándose en http://localhost:${PUERTO}`
+    );
 
 });
 
-app.put("/api/aprendices/:id_aprendices", (_, res) => {
-    res.status(200).json({mesaje:'Actializar aprendiz'})
-});
-
-app.delete("/api/aprendices/:id_aprendices", (_, res) => {
-    res.status(200).json({mensaje:'Eliminada'})
-});
- 
-app.listen(MIPUERTO, () => {
-    console.log(`Servidor en funcionamiento en el puerto: ${MIPUERTO}`);
-});
 
