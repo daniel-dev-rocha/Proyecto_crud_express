@@ -2,7 +2,8 @@ const express = require('express');
 require('dotenv').config();
 
 const app = express();
-
+const PUERTO = process.env.MIPUERTO || 3003;
+const jwtoken = require("jsonwebtoken")
 
 
 app.use(express.urlencoded({ extended: true }));
@@ -10,13 +11,14 @@ app.use(express.json());
 //usar nuestros middleware
 
 
-const PUERTO = process.env.MIPUERTO || 3003;
+
 // Importar mis middleware
 
-const registroMiddleware = require("./middleware/registroMiddleware")
-app.use(registroMiddleware)
+const registroMiddleware = require("./src/middleware/registroMiddleware");
+app.use(registroMiddleware);
 
-const manejoErroresMiddleware = require("./middleware/manejadoErroresMiddleware")
+const manejoErroresMiddleware = require("./src/middleware/manejadoErroresMiddleware");
+const autenticacionMiddleware = require("./src/middleware/autenticacionMiddleware");
 
 
 // Librerías
@@ -29,7 +31,7 @@ const multer = require('multer');
 const {
     validarNombre,
     validarCorreo
-} = require('./validaciones/validacioness');
+} = require('./src/validaciones/validacioness');
 
 
 // Archivo JSON
@@ -332,6 +334,30 @@ app.delete(
 app.get("/api/error", (req,res, next)=>{
     next(new Error("Esto es un error provocado"))
 })
+
+
+app.get("/api/rutaprotegida", autenticacionMiddleware, (req, res, next)=>{
+    res.json({mensaje: "Ruta protegida "});
+});
+
+app.post("/api/login", (req, res, next)=>{
+    const {usuario, password} = req.body
+    //simular datos de usuario en la DB
+    
+    const bdUsuario = {"usuario": "Daniel", "password": "Sena1234"}
+    //validar datos
+    if (usuario !== bdUsuario.usuario || password !== bdUsuario.password){
+        res.json({mensaje: "Usuario y/o clave estan incorrectas"});
+    }
+  
+    const token = jwtoken.sign(
+    {"user": req.usuario,},
+    process.env.JWT_SECRETO, 
+    {expiresIn:"1h"}
+);
+    res.json({ token });
+})
+
 
 
 app.use(manejoErroresMiddleware)
