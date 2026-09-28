@@ -1,5 +1,5 @@
 const iniciarSesion = async (req, res) =>{
-    const {usuario, clave}= req.body
+   
     //simular bd de un usuario registrado
     const userBd = {"usuario": "Daniel", "clave": "123"}
     try {
@@ -10,8 +10,18 @@ const iniciarSesion = async (req, res) =>{
         }
         res.json({mensaje: "Usuario Bienvenido"})
     } catch (error) {
-        res.json({Error: error})
+        res.json({error: error})
     }
 }
 
-module.exports = iniciarSesion;
+
+const registrarse = async (req, res)=>{
+    try {
+        const datos = req.body
+        res.json({datosregistro: datos})
+    } catch(error) {
+        res.json({error: error})
+    }
+}
+
+module.exports = {iniciarSesion, registrarse}
