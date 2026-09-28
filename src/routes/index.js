@@ -3,7 +3,13 @@ const {Router} = require("express")
 const enrutadorGeneral = Router()
 const enrutadorPrueba = require("./pruedaRouter")
 
-enrutadorGeneral.use("/rutaPrueba", enrutadorPrueba)
+//importar enrutadorAuth 
+const enrutadorAuth = require("./auntenticarRouter")
 
+enrutadorGeneral.use("/rutaPrueba", enrutadorPrueba)
+enrutadorGeneral.use("/auntenticar", enrutadorAuth)
 
 module.exports = enrutadorGeneral;
+
+
+
